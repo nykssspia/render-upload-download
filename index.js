@@ -6,11 +6,25 @@ const fs = require("fs");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// uploads klasörü yolu
+const uploadDir = path.join(__dirname, "uploads");
+
+// uploads klasörü yoksa oluştur
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir);
+  console.log("uploads klasörü oluşturuldu.");
+}
+
 // Dosyalar uploads klasörüne kaydedilecek
-const upload = multer({ dest: "uploads/" });
+const upload = multer({ dest: uploadDir });
 
 app.use(express.static("public"));
 app.use(express.json());
+
+// Ana sayfa için index.html dosyasını gönder (opsiyonel)
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
 
 // Dosya yükleme endpointi
 app.post("/upload", upload.single("file"), (req, res) => {
@@ -20,19 +34,19 @@ app.post("/upload", upload.single("file"), (req, res) => {
   res.json({
     filename: req.file.filename,
     originalname: req.file.originalname,
-    url: `/download/${req.file.filename}`
+    url: `/download/${req.file.filename}`,
   });
 });
 
 // Yüklü dosyaların listesini dönen endpoint
 app.get("/files", (req, res) => {
-  fs.readdir("uploads", (err, files) => {
+  fs.readdir(uploadDir, (err, files) => {
     if (err) {
       return res.status(500).send("Dosyalar listelenemedi");
     }
-    const fileList = files.map(file => ({
+    const fileList = files.map((file) => ({
       filename: file,
-      url: `/download/${file}`
+      url: `/download/${file}`,
     }));
     res.json(fileList);
   });
@@ -41,8 +55,8 @@ app.get("/files", (req, res) => {
 // Dosya indirme endpointi
 app.get("/download/:filename", (req, res) => {
   const filename = req.params.filename;
-  const filepath = path.join(__dirname, "uploads", filename);
-  res.download(filepath, err => {
+  const filepath = path.join(uploadDir, filename);
+  res.download(filepath, (err) => {
     if (err) {
       res.status(404).send("Dosya bulunamadı");
     }
