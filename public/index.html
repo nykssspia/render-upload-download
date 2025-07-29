@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dosya Yükleme ve İndirme</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f9f9f9;
+    }
+    h1, h2 {
+      color: #333;
+    }
+    form {
+      margin-bottom: 20px;
+    }
+    #fileList div {
+      margin: 5px 0;
+    }
+    a {
+      color: #0066cc;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    button {
+      padding: 6px 12px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>Dosya Yükle</h1>
+  <form id="uploadForm">
+    <input type="file" name="file" required />
+    <button type="submit">Yükle</button>
+  </form>
+
+  <h2>Yüklü Dosyalar</h2>
+  <div id="fileList">Yüklenen dosyalar burada listelenecek...</div>
+
+  <script>
+    const form = document.getElementById("uploadForm");
+    const fileListDiv = document.getElementById("fileList");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const fileInput = form.querySelector("input[name=file]");
+      if (!fileInput.files.length) {
+        alert("Lütfen bir dosya seçin.");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
+
+      try {
+        const response = await fetch("/upload", {
+          method: "POST",
+          body: formData
+        });
+
+        if (response.ok) {
+          alert("Dosya başarıyla yüklendi!");
+          form.reset();
+          loadFiles();  // Dosya listesini güncelle
+        } else {
+          alert("Dosya yükleme başarısız oldu.");
+        }
+      } catch (error) {
+        alert("Bir hata oluştu: " + error.message);
+      }
+    });
+
+    // Yüklü dosyaları backend'den çekip listele
+    async function loadFiles() {
+      try {
+        const response = await fetch("/files");
+        if (!response.ok) {
+          fileListDiv.textContent = "Dosyalar yüklenemedi.";
+          return;
+        }
+        const files = await response.json();
+
+        if (files.length === 0) {
+          fileListDiv.textContent = "Henüz dosya yüklenmedi.";
+          return;
+        }
+
+        fileListDiv.innerHTML = "";
+        files.forEach(file => {
+          const div = document.createElement("div");
+          const link = document.createElement("a");
+          link.href = file.url;
+          link.textContent = file.filename;
+          link.download = file.filename;
+          div.appendChild(link);
+          fileListDiv.appendChild(div);
+        });
+      } catch (error) {
+        fileListDiv.textContent = "Dosyalar yüklenirken hata oluştu.";
+      }
+    }
+
+    // Sayfa yüklendiğinde dosyaları listele
+    loadFiles();
+  </script>
+</body>
+</html>
