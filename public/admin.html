@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Yönetim Paneli - Dosya Yönetimi</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #f9f9f9;
+      border-radius: 8px;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 10px;
+      text-align: left;
+    }
+    th {
+      background-color: #007bff;
+      color: white;
+    }
+    button {
+      padding: 5px 10px;
+      color: white;
+      background-color: #dc3545;
+      border: none;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+    button:hover {
+      background-color: #b02a37;
+    }
+    #loginSection {
+      max-width: 400px;
+      margin: 0 auto;
+      text-align: center;
+    }
+    #loginSection input[type="password"] {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 10px;
+      font-size: 16px;
+    }
+    #loginSection button {
+      background-color: #007bff;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <h1>Yönetim Paneli - Dosya Yönetimi</h1>
+
+  <div id="loginSection">
+    <input type="password" id="adminPassword" placeholder="Admin Şifresi" />
+    <button id="loginBtn">Giriş Yap</button>
+    <p id="loginError" style="color: red; display:none;">Şifre yanlış veya yetkisiz erişim.</p>
+  </div>
+
+  <div id="panel" style="display:none;">
+    <table>
+      <thead>
+        <tr>
+          <th>Dosya Adı</th>
+          <th>İşlem</th>
+        </tr>
+      </thead>
+      <tbody id="fileTableBody"></tbody>
+    </table>
+  </div>
+
+  <script>
+    const loginBtn = document.getElementById("loginBtn");
+    const adminPasswordInput = document.getElementById("adminPassword");
+    const loginError = document.getElementById("loginError");
+    const loginSection = document.getElementById("loginSection");
+    const panel = document.getElementById("panel");
+    const fileTableBody = document.getElementById("fileTableBody");
+
+    let authToken = null;
+
+    loginBtn.onclick = () => {
+      const pw = adminPasswordInput.value.trim();
+      if (!pw) return alert("Şifre girin!");
+
+      // Basit token olarak şifreyi kullanacağız
+      authToken = pw;
+
+      fetch("/admin/files", {
+        headers: { Authorization: `Bearer ${authToken}` }
+      })
+        .then(res => {
+          if (!res.ok) throw new Error("Yetkisiz");
+          return res.json();
+        })
+        .then(files => {
+          loginSection.style.display = "none";
+          panel.style.display = "block";
+          loginError.style.display = "none";
+          showFiles(files);
+        })
+        .catch(() => {
+          loginError.style.display = "block";
+          authToken = null;
+        });
+    };
+
+    function showFiles(files) {
+      fileTableBody.innerHTML = "";
+      if (files.length === 0) {
+        fileTableBody.innerHTML = `<tr><td colspan="2">Yüklü dosya yok.</td></tr>`;
+        return;
+      }
+      files.forEach(file => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><a href="${file.url}" target="_blank">${file.filename}</a></td>
+          <td><button onclick="deleteFile('${file.filename}')">Sil</button></td>
+        `;
+        fileTableBody.appendChild(tr);
+      });
+    }
+
+    function deleteFile(filename) {
+      if (!confirm(`${filename} dosyasını silmek istediğine emin misin?`)) return;
+      fetch(`/admin/delete/${filename}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${authToken}` }
+      })
+        .then(res => {
+          if (!res.ok) throw new Error("Silme başarısız");
+          return res.json();
+        })
+        .then(() => {
+          alert("Dosya silindi");
+          // Dosyaları tekrar getir
+          fetch("/admin/files", {
+            headers: { Authorization: `Bearer ${authToken}` }
+          })
+            .then(res => res.json())
+            .then(showFiles);
+        })
+        .catch(() => alert("Dosya silinirken hata oluştu"));
+    }
+  </script>
+</body>
+</html>
